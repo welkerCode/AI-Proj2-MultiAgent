@@ -49,6 +49,8 @@ class ReflexAgent(Agent):
 
         "Add more of your code here if you want to"
 
+
+
         return legalMoves[chosenIndex]
 
     def evaluationFunction(self, currentGameState, action):
@@ -73,65 +75,79 @@ class ReflexAgent(Agent):
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
-        "*** YOUR CODE HERE ***"
+
+
+        foodList = currentGameState.getFood()
+        foodList = foodList.asList()
+
+        eatReward = 0
+        minPenalty = 0
+        ghostPenalty = 10
+        corneredPenalty = 0
+        stationaryPenalty = 0
+        remainingFoodPenalty = 0
+        pathPenalty = 0
+
+        if newPos in foodList:
+            eatReward = 25
+
         score = successorGameState.getScore()
-        foodList = newFood.asList()
-        totalPenalty = 0
-        minPenalty = 50
         closest = (0,0)
+        distance = 100
         for food in foodList:
-            penalty = util.manhattanDistance(newPos,food)
-            if penalty < minPenalty:
+            if util.manhattanDistance(newPos, food) < distance:
+                distance = util.manhattanDistance(newPos, food)
                 closest = food
-                minPenalty = penalty
-            totalPenalty += 4/(penalty**2)
+            remainingFoodPenalty += distance
 
+        if distance == 0:
+            minPenalty = 0
+        elif distance < 6:
+            "*******************************"
+            queue = util.Queue()  # DFS requires a queue
+            initNode = (successorGameState, newPos, 0)  # Get the initial state and save it in a Search Node
+            queue.push(initNode)  # Put the initial node onto the queue
+            visited = []
+            while not queue.isEmpty():  # Until the queue is empty (and we fail to find the goal)
+                nextStateNode = queue.pop()  # Get the next node off of the queue
+                nextState = nextStateNode[1]  # Save its state in a local variable
+                if nextState not in visited:  # If the state has not been visited previously
+                    visited.append(nextState)  # Add it to the visited list
+                    if nextState in foodList:  # If the state is a goal state
+                        minPenalty = nextStateNode[2]
+                        queue.list = []
+                    # If we have reached this part of the DFS, then the current state is not a goal state
+                    else:
+                        for action in nextStateNode[0].getLegalActions():  # For every possible action and potential new state
 
-        "*******************************"
-        queue = util.Queue()  # DFS requires a queue
-        initNode = (currentGameState.getPacmanPosition, 0)  # Get the initial state and save it in a Search Node
-        queue.push(initNode)  # Put the initial node onto the queue
-        visited = []
-        while not queue.isEmpty() :  # Until the queue is empty (and we fail to find the goal)
-            nextStateNode = queue.pop()  # Get the next node off of the queue
-            nextState = nextStateNode[0]  # Save its state in a local variable
-            if nextState not in visited:  # If the state has not been visited previously
-                visited.append(nextState)  # Add it to the visited list
-                if nextState == closest:  # If the state is a goal state
-                    minPenalty = nextState[1]
-                # If we have reached this part of the DFS, then the current state is not a goal state
-                else:
-                    for action in currentGameState.getLegalActions():  # For every possible action and potential new state
+                            successor = nextStateNode[0].generatePacmanSuccessor(action)
+                            position = successor.getPacmanPosition()
 
-                        successor = currentGameState.generatePacmanSuccessor(action)
-                        position = successor.getPacmanPosition()
-
-                        successorNode = (position, nextStateNode[1]+1)  # Convert to Search Node
-                        queue.push(successorNode)  # Push onto queue
-        "************************************"
-
-
-        if currentGameState.getPacmanPosition() == newPos:
-            totalPenalty += 150
-        score -= 100/(len(successorGameState.getLegalActions())**2+1)
-
-        if newPos in currentGameState.getFood().asList():
-            score = score - totalPenalty
+                            successorNode = (successor, position, nextStateNode[2] + 1)  # Convert to Search Node
+                            queue.push(successorNode)  # Push onto queue
+            "************************************"
         else:
-            score = score - totalPenalty - (10*minPenalty)
-        ghostPenalty = 5
-        for ghost in newGhostStates:
-            penalty = util.manhattanDistance(newPos, ghost.getPosition())
-            if penalty == 0:
-                ghostPenalty = .001
+            minPenalty = distance
+
+
+        for ghost in xrange(len(newGhostStates)):
+            penalty = util.manhattanDistance(newPos, newGhostStates[ghost].getPosition())
+            if (penalty + 1) < newScaredTimes[ghost]:
+                ghostPenalty = -(penalty+1) / newScaredTimes[ghost]
+            elif penalty == 0:
+                ghostPenalty = .14
             elif ghostPenalty > penalty:
                 ghostPenalty = penalty
-        if min(newScaredTimes)-1 <= util.manhattanDistance(newPos, ghost.getPosition()):
-            score = score - 80/(ghostPenalty**2)
-        else:
-            score = score + 20 / (ghostPenalty ** 2)
-        return(score)
 
+
+        if distance > 1:
+            corneredPenalty = len(successorGameState.getLegalActions())
+
+        if currentGameState.getPacmanPosition() == newPos:
+            stationaryPenalty = 150
+
+        score = score + eatReward - 10* minPenalty - 50 / (ghostPenalty ** 2) - distance*5/(corneredPenalty**2+1) - stationaryPenalty - remainingFoodPenalty - pathPenalty
+        return (score)
 
 
 
@@ -193,9 +209,48 @@ class MinimaxAgent(MultiAgentSearchAgent):
         """
         "*** YOUR CODE HERE ***"
 
-        return('East')
-
+        (value, action) = self.value(0,gameState,0)
+        print 'Value is:' + str(value) + '        Depth is:' + str(self.depth)
+        return(action)
         util.raiseNotDefined()
+
+
+
+    def value(self, agent, gameState, depth):
+        if agent == gameState.getNumAgents():
+            depth +=1
+            agent = 0
+        if agent == 0:
+            result = self.maxValue(agent,gameState,depth)
+        else:
+            result = self.minValue(agent,gameState,depth)
+        return result
+
+    def maxValue(self, agent, gameState, depth):
+        value = -9999999
+        choice = 'Center'
+        if depth == self.depth:
+            return (self.evaluationFunction(gameState), choice)
+        if len(gameState.getLegalActions(0)) == 0:
+            return (self.evaluationFunction(gameState), choice)
+        for action in gameState.getLegalActions(0):
+            next = gameState.generateSuccessor(0, action)
+
+            newValue =  max(value, self.value(agent+1, next, depth))
+            if newValue[0] > value:
+                choice = action
+            value = max(value, newValue[0])
+        return (value, choice)
+
+    def minValue(self, agent, gameState, depth):
+        value = 999999
+        if len(gameState.getLegalActions(agent)) == 0:
+            return (self.evaluationFunction(gameState),None)
+        for action in gameState.getLegalActions(agent):
+            ghost = gameState.generateSuccessor(agent, action)
+            result = self.value(agent+1, ghost, depth)
+            value = min(value,result[0])
+        return (value, None)
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
