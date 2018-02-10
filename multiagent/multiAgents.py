@@ -379,7 +379,89 @@ def betterEvaluationFunction(currentGameState):
       DESCRIPTION: <write something here so we know what you did>
     """
     "*** YOUR CODE HERE ***"
+
+
+    position = currentGameState.getPacmanPosition()
+    ghostStates = currentGameState.getGhostStates()
+    scaredTimes = [ghostState.scaredTimer for ghostState in ghostStates]
+
+    foodList = currentGameState.getFood()
+    foodList = foodList.asList()
+
+    minPenalty = 0
+    ghostPenalty = 10
+    corneredPenalty = 0
+    stationaryPenalty = 0
+    remainingFoodPenalty = len(foodList)
+    pathPenalty = 0
+
+
+    score = currentGameState.getScore()*1000
+    distance = 100
+    for food in foodList:
+        if util.manhattanDistance(position, food) < distance:
+            distance = util.manhattanDistance(position, food)
+            closest = food
+        pathPenalty += 5*distance**2
+
+    if distance == 0:
+        minPenalty = 0
+    elif distance < 6:
+        "*******************************"
+        queue = util.Queue()  # DFS requires a queue
+        initNode = (currentGameState, position, 0)  # Get the initial state and save it in a Search Node
+        queue.push(initNode)  # Put the initial node onto the queue
+        visited = []
+        while not queue.isEmpty():  # Until the queue is empty (and we fail to find the goal)
+            nextStateNode = queue.pop()  # Get the next node off of the queue
+            nextState = nextStateNode[1]  # Save its state in a local variable
+            if nextState not in visited:  # If the state has not been visited previously
+                visited.append(nextState)  # Add it to the visited list
+                if nextState in foodList:  # If the state is a goal state
+                    minPenalty = nextStateNode[2]
+                    queue.list = []
+                # If we have reached this part of the DFS, then the current state is not a goal state
+                else:
+                    for action in nextStateNode[0].getLegalActions():  # For every possible action and potential new state
+
+                        successor = nextStateNode[0].generatePacmanSuccessor(action)
+                        position = successor.getPacmanPosition()
+
+                        successorNode = (successor, position, nextStateNode[2] + 1)  # Convert to Search Node
+                        queue.push(successorNode)  # Push onto queue
+        "************************************"
+    else:
+        minPenalty = distance
+
+    for ghost in xrange(len(ghostStates)):
+        penalty = util.manhattanDistance(position, ghostStates[ghost].getPosition())
+        if (penalty + 1) < scaredTimes[ghost]:
+            ghostPenalty = (penalty + 1) / (2*scaredTimes[ghost])
+        elif penalty == 0:
+            ghostPenalty = .14
+        elif ghostPenalty > penalty:
+            ghostPenalty = penalty
+
+    if scaredTimes[ghost] > 0:
+        scared = -5
+    else:
+        scared = 1
+    winReward = 0
+    corneredPenalty = len(currentGameState.getLegalActions())
+    if len(foodList) == 0:
+        winReward = 500
+
+
+    #score = score - 12 * minPenalty - 50 * scared / (ghostPenalty ** 2) - distance*5 / (corneredPenalty ** 2 + 1)  - 10*(remainingFoodPenalty**2) - pathPenalty + winReward
+    #score = score - 12 * minPenalty - 50 * scared / (ghostPenalty ** 2) - distance*0 / (corneredPenalty ** 2 + 1) + winReward
+    score = score - 12 * minPenalty * remainingFoodPenalty - 75 * scared / (ghostPenalty ** 2) - distance * 1 / (corneredPenalty ** 2 + 1) + winReward
+    #score = score - minPenalty * remainingFoodPenalty -   10 * scared / (ghostPenalty ** 1) + winReward
+
+    return (score)
+
+
     util.raiseNotDefined()
+
 
 # Abbreviation
 better = betterEvaluationFunction
