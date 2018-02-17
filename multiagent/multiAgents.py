@@ -451,11 +451,7 @@ def betterEvaluationFunction(currentGameState):
     if len(foodList) == 0:
         winReward = 500
 
-
-    #score = score - 12 * minPenalty - 50 * scared / (ghostPenalty ** 2) - distance*5 / (corneredPenalty ** 2 + 1)  - 10*(remainingFoodPenalty**2) - pathPenalty + winReward
-    #score = score - 12 * minPenalty - 50 * scared / (ghostPenalty ** 2) - distance*0 / (corneredPenalty ** 2 + 1) + winReward
-    score = score - 12 * minPenalty * remainingFoodPenalty - 75 * scared / (ghostPenalty ** 2) - distance * 1 / (corneredPenalty ** 2 + 1) + winReward
-    #score = score - minPenalty * remainingFoodPenalty -   10 * scared / (ghostPenalty ** 1) + winReward
+    score = score - 1 * minPenalty * remainingFoodPenalty - 10 * scared / (ghostPenalty ** 2) - distance * 1 / (corneredPenalty ** 2 + 1) + winReward
 
     return (score)
 
